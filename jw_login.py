@@ -111,11 +111,11 @@ def resolve_student_turn(page, forced_sid=None, forced_tid=None):
 
     if not sid:
         raise RuntimeError(
-            f"无法解析学号 studentId：{url}\n请在 config.json 显式设置 student_id。")
+            f"无法解析学号 studentId：{url}\n请在 config.json 显式设置 studentAssoc。")
     if not tid:
         raise RuntimeError(
             f"无法确定选课轮次 turnId（当前页：{url}）。\n"
-            "请在 config.json 显式设置 turn_id（从选课页 URL .../turn/{turnId}/select 取）。")
+            "请在 config.json 显式设置 courseSelectTurnAssoc（从选课页 URL .../turn/{turnId}/select 取）。")
     return sid, tid
 
 

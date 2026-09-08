@@ -45,7 +45,7 @@ python3 -m venv .venv
 ```
 
 ### 3. 配置 `config.json`
-填 `student_id`、`turn_id`、`target_lesson_id`，以及 **`limit_count`（满课人数 = 容量上限）**。`mode` 保持 `spam`。
+填 `studentAssoc`、`courseSelectTurnAssoc`、`lessonAssoc`，以及 **`limit_count`（满课人数 = 容量上限）**。`mode` 保持 `spam`。
 > 「满课人数」怎么填：脚本调 `std-count` 只能拿到「已选人数」，拿不到容量上限；所以需要手动填。打开选课页看那门课显示的容量（如 `容量 178`），把数字填进 `limit_count`。脚本在「已选人数 < 满课人数」时才抢。
 
 ### 4. 运行
@@ -67,9 +67,9 @@ python3 -m venv .venv
 
 | 字段 | 说明 |
 |---|---|
-| `student_id` | 学生关联 id；留空自动解析（从选课页 URL 取）|
-| `turn_id` | 选课轮次 id，**每学期变** |
-| `target_lesson_id` | 目标课 lessonId（如 `123456`，这个ID号不是课堂号，需要在F12的数据包里看）|
+| `studentAssoc` | 学生关联 id（对应 HTTP 负载 `studentAssoc`）；留空自动解析（从选课页 URL 取）|
+| `courseSelectTurnAssoc` | 选课轮次 id（对应 HTTP 负载 `courseSelectTurnAssoc`），**每学期变** |
+| `lessonAssoc` | 目标课 lessonId（对应 HTTP 负载 `lessonAssoc`，如 `123456`，这个ID号不是课堂号，需要在F12的数据包里看）|
 | `target_course_name` | 课程名模糊匹配（兜底）|
 | `limit_count` | **必填**：目标课「满课人数」(容量上限)。脚本在「已选人数 < 满课人数」时才抢（`std-count` 只返回人数，容量需手填）|
 | `interval_seconds` | 查询基准间隔（秒），建议 ≥ 60 |
@@ -105,4 +105,4 @@ grabbing.py --headless         # 强制无头
 - **一直「已满 x/y」**：正常，等退课。
 - **`登录态已过期`**：回本机 `--login` 刷新 `auth.json` 再传一次。
 - **被风控/账号受限**：立即停止，降频或改手动；联系教务说明。
-- **非选课时段**：解析不到 turnId；选课开放后再跑，或填 `turn_id`。
+- **非选课时段**：解析不到 turnId；选课开放后再跑，或填 `courseSelectTurnAssoc`。
