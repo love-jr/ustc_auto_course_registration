@@ -84,9 +84,9 @@ class _Tee:
 # ----------------------------- 配置 -----------------------------
 def load_config():
     default = {
-        "student_id": "",          # 学生关联 id；留空自动解析
-        "turn_id": "",             # 选课轮次 id，每学期变
-        "target_lesson_id": "",    # 目标课 lessonId
+        "studentAssoc": "",             # 学生关联 id；留空自动解析
+        "courseSelectTurnAssoc": "",    # 选课轮次 id，每学期变
+        "lessonAssoc": "",              # 目标课 lessonId
         "target_course_name": "",  # 课程名模糊匹配（兜底）
         "limit_count": 0,          # 必填：目标课「满课人数」(容量上限)
         "interval_seconds": 60,    # 查询基准间隔（秒），实际 = interval ± jitter
@@ -404,7 +404,7 @@ def main():
         sys.stdout = _Tee(sys.__stdout__, log_fp)
 
     cfg = load_config()
-    if args.lesson: cfg["target_lesson_id"] = args.lesson
+    if args.lesson: cfg["lessonAssoc"] = args.lesson
     if args.name: cfg["target_course_name"] = args.name
     if args.mode: cfg["mode"] = args.mode
     if args.interval: cfg["interval_seconds"] = args.interval
@@ -419,8 +419,8 @@ def main():
         try:
             sid, tid = jw_login.ensure_login(
                 context, headless=headless,
-                forced_sid=cfg.get("student_id") or None,
-                forced_tid=cfg.get("turn_id") or None,
+                forced_sid=cfg.get("studentAssoc") or None,
+                forced_tid=cfg.get("courseSelectTurnAssoc") or None,
                 need_turn=not args.login)
         except Exception as e:
             print(f"登录失败：{type(e).__name__}: {e}")
@@ -435,21 +435,21 @@ def main():
         if args.login:
             jw_login.save_auth(context)
             print("登录态已保存到 ./auth.json（cookie，跨平台）。")
-            print("下一步：点进选课页，地址栏 .../turn/<数字>/select 中的 <数字> 即 turn_id；")
-            print("        再把 student_id / turn_id / target_lesson_id 填入 config.json。")
+            print("下一步：点进选课页，地址栏 .../turn/<数字>/select 中的 <数字> 即 courseSelectTurnAssoc；")
+            print("        再把 studentAssoc / courseSelectTurnAssoc / lessonAssoc 填入 config.json。")
             return
 
         data = list_all_lessons(context, sid, tid) if args.list else []
-        target, items = find_target(data, cfg.get("target_lesson_id"), cfg.get("target_course_name"))
+        target, items = find_target(data, cfg.get("lessonAssoc"), cfg.get("target_course_name"))
 
         if args.list:
             print_lessons(items)
             return
 
         mode = cfg["mode"]
-        lid = cfg.get("target_lesson_id") or ""
+        lid = cfg.get("lessonAssoc") or ""
         if not lid:
-            print("\n未指定目标课。请在 config.json 设置 target_lesson_id。")
+            print("\n未指定目标课。请在 config.json 设置 lessonAssoc。")
             return
         cname = cfg.get("target_course_name") or (target and _name(target)) or f"lessonId={lid}"
 
