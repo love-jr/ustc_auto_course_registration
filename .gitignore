@@ -5,12 +5,18 @@
 auth.json
 .browser_data/
 
-# 运行日志
+# 本地覆盖配置（含学号/邮箱等个人信息）
+config.local.json
+.env
+
+# 运行产物
 run.log
+*.log
+run.pid
 
 # Python
 __pycache__/
 *.pyc
 
-# 本地覆盖配置
-config.local.json
+# 其他工具的本地索引，与本项目无关
+skills-lock.json

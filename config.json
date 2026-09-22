@@ -1,10 +1,22 @@
 {
-  "student_id": "",
-  "turn_id": "",
-  "target_lesson_id": "",
-  "target_course_name": "",
-  "interval_seconds": 30,
+  "studentAssoc": "",
+  "courseSelectTurnAssoc": "",
+  "day_hours": "8:00-23:00",
+  "batch_interval": [5, 15],
+  "round_interval_day": [300, 600],
+  "round_interval_night": [1200, 1800],
+  "refresh_seconds": 900,
+  "max_errors": 20,
   "mode": "spam",
-  "notify_webhook_url": "",
-  "limit_count":""
+  "email": {
+    "enabled": false,
+    "smtp_host": "smtp.qq.com",
+    "smtp_port": 465,
+    "smtp_ssl": true,
+    "username": "you@example.com",
+    "from": "you@example.com",
+    "to": ["you@example.com"],
+    "password_env": "COURSE_BOT_SMTP_PASSWORD"
+  },
+  "courses": []
 }
