@@ -1,25 +1,16 @@
-# 中国科学技术大学选课抢课（中科大选课抢课）（Windows / Linux 通用）
+# 中国科学技术大学选课抢课（Windows / Linux 通用）
 
-监控一门课的已选人数，发现有人退课时自动选课。适配 2026 新版教务系统。**同一份代码在 Windows 和 Linux 都能直接跑。**
+按优先级自动选课，适配 2026 新版教务系统。**同一份代码在 Windows 和 Linux 都能直接跑。**
 
 ## ⚠️ 风险提示
-自动抢课可能触发教务系统风控，导致账号受限，**后果自负**。建议：间隔 ≥ 60 秒。
+
+自动抢课可能触发教务系统风控，导致账号受限，**后果自负**。建议间隔 ≥ 60 秒，并先读一遍下面的「保护机制」。
 
 ## 核心逻辑
 
-每轮先 POST `std-count` 查「已选人数」——模拟在浏览器里刷新看人数。
-- **已满** → 什么都不做，等下一轮；
-- **有空位**（`stdCount < 容量`）→ 才 POST `add-request` → `add-drop-response` 真正选课。
+每轮按 `priority` 直接 POST `add-request` → `add-drop-response` 提交选课，由教务系统返回结果决定是否成功。容量和已选人数**不作为**提交前置条件——真实系统里存在已选人数已超过 `limitCount` 的课程，用人数判断会白白错过。
 
-叠加三道保护：**随机间隔**、**活跃时段**、**失败熔断**。
-
-## 工作原理
-
-1. `python grabbing.py --login` 在有浏览器的机器登录一次，生成 `auth.json`（cookie）。
-2. 运行时用浏览器请求通道（自动带 cookie）调用教务接口。
-3. 监控循环：`std-count` 查人数 → 有空位时 `add-request`/`add-drop-response` 选课 → 成功退出。
-
-> 注：`std-count` 接口只返回「已选人数」，不含「容量上限」；容量从 `addable-lessons` 取或手动填 `limit_count`。
+叠加四道保护：**随机间隔**、**活跃时段**、**失败熔断**、**风控信号即停**。
 
 ## 快速开始
 
@@ -39,70 +30,117 @@ python3 -m venv .venv
 ```
 
 ### 2. 登录（在有浏览器的机器上，生成 auth.json）
+
 ```bat
 .venv\Scripts\python grabbing.py --login      :: Windows
 .venv/bin/python grabbing.py --login          # Linux/macOS
 ```
 
-### 3. 配置 `config.json`
-填 `studentAssoc`、`courseSelectTurnAssoc`、`lessonAssoc`，以及 **`limit_count`（满课人数 = 容量上限）**。`mode` 保持 `spam`。
-> 「满课人数」怎么填：脚本调 `std-count` 只能拿到「已选人数」，拿不到容量上限；所以需要手动填。打开选课页看那门课显示的容量（如 `容量 178`），把数字填进 `limit_count`。脚本在「已选人数 < 满课人数」时才抢。
+登录成功后生成 `auth.json`（Playwright storage_state，含 cookie 与 localStorage）。该文件已 gitignore，**不要提交**。
+
+### 3. 配置
+
+配置分两层，后者覆盖前者：
+
+| 文件 | 用途 | 是否进版本控制 |
+|---|---|---|
+| `config.json` | 通用设置模板 | ✅ 提交 |
+| `config.local.json` | 你的个人信息（学号、邮箱、目标课程） | ❌ 已忽略 |
+
+**推荐做法**：把个人信息和真实课程填进 `config.local.json`，这样 `config.json` 始终是干净的模板，不会误提交隐私。
+
+需要填的字段：
+
+- `studentAssoc`：学生关联 id。留空会从选课页 URL 自动解析。
+- `courseSelectTurnAssoc`：选课轮次 id，**每学期变**。从选课页 URL `.../turn/<数字>/select` 里取那个数字。
+- `courses`：目标课程数组。每项可写 `lessonAssoc`（精确），或 `name` + `teacher`（按名字匹配，教师支持逗号分隔多人）。`priority` 越小越优先，`allow_conflict` 控制是否允许已知时间冲突。
+
+账号密码放 `.env`（同样已忽略），用于登录态失效后自动重登：
+
+```
+USTC_USERNAME=你的学号
+USTC_PASSWORD=你的密码
+COURSE_BOT_SMTP_PASSWORD=你的QQ邮箱SMTP授权码
+```
+
+> 若登录需要验证码、扫码或二次认证，程序会发邮件通知并停止——这些步骤无法也不应绕过。
 
 ### 4. 运行
+
 ```bat
-.venv\Scripts\python grabbing.py
-.venv/bin/python grabbing.py
+.venv\Scripts\python grabbing.py              :: Windows
+.venv/bin/python grabbing.py                  # Linux/macOS
 ```
-看到 `std-count 探测：...` 和每轮 `已满 x/y` 就是正常；出现 `有空位！` 即触发选课。
 
 ## 在 Linux 服务器上跑（无图形界面）
-1. 本机 `--login` 生成 `auth.json`。
-2. `scp -r ustc_grab_classes/ user@server:/path/...`
-3. 服务器装环境（同上 Linux 命令）。
-4. `.venv/bin/python grabbing.py`（默认 headless）。
 
-服务器完全独立运行；本机关机/删本地文件不影响。`auth.json` 拷过去即可。
+1. 在本机执行 `--login` 生成 `auth.json`。
+2. 把项目目录和 `auth.json` 一起拷到服务器。
+3. 按上面的 Linux 命令装环境。
+4. `.venv/bin/python grabbing.py`（Linux 无 `$DISPLAY` 时自动 headless）。
 
-## `config.json` 字段
+服务器完全独立运行，本机关机或删除本地文件都不影响。
+
+## 配置文件字段
 
 | 字段 | 说明 |
 |---|---|
-| `studentAssoc` | 学生关联 id（对应 HTTP 负载 `studentAssoc`）；留空自动解析（从选课页 URL 取）|
-| `courseSelectTurnAssoc` | 选课轮次 id（对应 HTTP 负载 `courseSelectTurnAssoc`），**每学期变** |
-| `lessonAssoc` | 目标课 lessonId（对应 HTTP 负载 `lessonAssoc`，如 `123456`，这个ID号不是课堂号，需要在F12的数据包里看）|
-| `target_course_name` | 课程名模糊匹配（兜底）|
-| `limit_count` | **必填**：目标课「满课人数」(容量上限)。脚本在「已选人数 < 满课人数」时才抢（`std-count` 只返回人数，容量需手填）|
-| `interval_seconds` | 查询基准间隔（秒），建议 ≥ 60 |
-| `jitter_seconds` | 随机抖动（秒），实际间隔 = interval ± jitter |
-| `active_hours` | 活跃时段 `HH:MM-HH:MM`，支持跨天；默认 `6:30-1:00`（即 1:00–6:30 暂停）。空 = 全天 |
-| `max_errors` | 连续异常熔断阈值，达到即停止 |
-| `mode` | `spam` 监控到空位就抢（默认）；`monitor` 仅提醒；`grab` 同 spam |
-| `notify_webhook_url` | 可选，事件时 GET 该 URL |
+| `studentAssoc` | 学生关联 id（HTTP 负载的 `studentAssoc`）；留空自动解析 |
+| `courseSelectTurnAssoc` | 选课轮次 id，**每学期变** |
+| `courses` | 目标课程数组；每项支持 `lessonAssoc` 或 `name` + `teacher`、`priority`、`allow_conflict` |
+| `batch_interval` | 同一轮内每笔请求的间隔区间（秒），模拟人手速，默认 `[5, 15]` |
+| `day_hours` | 白天时段 `HH:MM-HH:MM`，支持跨天；默认 `8:00-23:00`，空 = 全天 |
+| `round_interval_day` | 白天每轮之间的等待区间（秒），默认 `[300, 600]` |
+| `round_interval_night` | 夜间每轮之间的等待区间（秒），默认 `[1200, 1800]` |
+| `refresh_seconds` | 刷新课程元数据和已选状态的周期（秒），最小 300 |
+| `max_errors` | 连续异常熔断阈值，达到即停止，最小 3 |
+| `mode` | `spam` 直接提交（默认）；`monitor` 仅提醒不提交；`grab` 同 `spam` |
+| `email` | 邮件通知配置，密码建议用 `password_env` 指向环境变量 |
 | `headless` | 一般不用设，默认按平台自动判断 |
-| `heart_beat` | 在非活跃时段的查询基准间隔，主要目的是保活 |
 
 ## 命令一览
+
 ```bash
-grabbing.py --login            # 登录并生成 auth.json（需图形界面）
-grabbing.py --list             # 列出可选课（查 lessonId / 容量）
-grabbing.py                    # 监控抢课（按 config.json）
-grabbing.py --lesson 123456 -t 90 --log run.log
-grabbing.py --headless         # 强制无头
+python grabbing.py --login            # 登录并生成 auth.json（需图形界面）
+python grabbing.py --list             # 列出可选课（查 lessonId / 容量）
+python grabbing.py                    # 监控抢课（按配置）
+python grabbing.py --lesson 123456 -t 60 --log run.log
+python grabbing.py --headless         # 强制无头
+python grabbing.py --mode monitor     # 只监控不提交
 ```
 
-## 文件说明
-| 文件 | 作用 |
+常用参数：`-m/--mode` 切换模式，`-t/--interval` 覆盖白天轮间等待（以该值为中心 ±30%），`--log` 同时写日志文件。
+
+## 保护机制
+
+| 机制 | 作用 |
 |---|---|
-| `grabbing.py` | 主程序（监控式抢课 + 登录失效检测 + 跨平台 headless）|
-| `jw_login.py` | 登录模块（Playwright + auth.json）|
-| `config.json` | 运行配置 |
-| `auth.json` | 登录态（cookie），**敏感，勿提交**，已 gitignore |
-| `requirements.txt` | 依赖 |
-| `run.sh` | Linux/macOS 启动便捷脚本 |
+| 随机间隔 | 轮内每笔请求间隔随机；轮间白天短、夜间长，避免固定节拍 |
+| 活跃时段 | `day_hours` 之外的时间段按夜间节奏运行 |
+| 失败熔断 | 连续异常达 `max_errors` 次后停止；网络类异常不计入，避免断网误停 |
+| 风控即停 | 响应中出现「请求过于频繁」「账号受限」等信号时立即停止并告警 |
+| 登录自愈 | 登录态失效先尝试 `.env` 账号密码重登；失败则邮件告警并停止 |
+
+## 文件说明
+
+| 路径 | 作用 |
+|---|---|
+| `grabbing.py` | 命令行入口 |
+| `jw_login.py` | 登录模块兼容入口（实现已迁至 `ustcgrab/login.py`） |
+| `ustcgrab/` | 主实现，按职责拆分：`config` 配置、`api` 接口传输、`fields` 字段提取、`courses` 匹配与冲突、`pacing` 节奏、`notify` 通知、`login` 登录、`runner` 主循环、`cli` 入口 |
+| `config.json` | 通用配置模板（可提交） |
+| `config.local.json` | 个人信息覆盖（**已忽略**） |
+| `.env` | 账号密码与 SMTP 授权码（**已忽略**） |
+| `auth.json` | 登录态 cookie（**已忽略**） |
+| `autostart_*.bat` / `autostart_*.ps1` | Windows 开机自启的安装与卸载 |
+| `run_bot.pyw` / `start_bot.bat` | Windows 后台静默启动 |
+| `run.sh` | Linux/macOS 前台启动 |
+| `requirements.txt` | 依赖（仅 `playwright`） |
 
 ## 常见问题
-- **`std-count 探测` 显示 `解析人数=None`**：响应结构与脚本假设不符。把探测输出的「原始片段」贴出来，对照调整 `_parse_std_count`。
-- **一直「已满 x/y」**：正常，等退课。
-- **`登录态已过期`**：回本机 `--login` 刷新 `auth.json` 再传一次。
-- **被风控/账号受限**：立即停止，降频或改手动；联系教务说明。
-- **非选课时段**：解析不到 turnId；选课开放后再跑，或填 `courseSelectTurnAssoc`。
+
+- **解析不到 `turnId`**：非选课开放时段常见。等选课开放后再跑，或手动填 `courseSelectTurnAssoc`。
+- **课程匹配失败，匹配数=0**：课程名或教师名与接口返回不一致。先 `--list` 看实际字段值再改配置。
+- **一直失败但提示「人数已满」**：正常，继续蹲守即可。
+- **提示「登录态已过期」**：程序会先尝试自动重登；若需验证码/扫码，回本机 `--login` 刷新 `auth.json`。
+- **被风控/账号受限**：立即停止，降频或改手动；必要时联系教务说明。
