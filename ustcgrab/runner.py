@@ -123,11 +123,9 @@ class Monitor:
         self.last_refresh = 0.0
 
     def prepare(self):
-        """首次列课、绑定目标课程并打印一次状态。"""
+        """设置请求节奏并拉取全部可选课，供 --list 展示或 bind 绑定。"""
         api.throttle.set_interval(*pacing.batch_range(self.cfg))
-        items = api.list_all_lessons(self.context, self.sid, self.tid)
-        self._items = items
-        return items
+        return api.list_all_lessons(self.context, self.sid, self.tid)
 
     def bind(self, items):
         selected = api.list_selected_lessons(self.context, self.sid, self.tid)
@@ -157,21 +155,24 @@ class Monitor:
               f"夜间等 {night_lo}–{night_hi}s")
         print("逻辑：每轮按 priority 直接提交所有未成功课程；失败下轮继续；风控信号即停。\n")
 
-    def _sync_selected(self):
-        selected = api.list_selected_lessons(self.context, self.sid, self.tid)
+    def _apply_state(self, selected):
+        """按已选快照重算每门课的 selected / blocked。"""
         courses_mod.refresh_selected(self.courses, selected)
         courses_mod.apply_conflict_policy(self.courses, selected)
+
+    def _sync_selected(self):
+        selected = api.list_selected_lessons(self.context, self.sid, self.tid)
+        self._apply_state(selected)
         return selected
 
     def _refresh_metadata(self, selected):
-        """周期性刷新课程元数据（容量等可能变化）并重新绑定。"""
+        """周期性刷新课程元数据（容量等可能变化），复用本轮已选快照。"""
         refreshed = api.list_all_lessons(self.context, self.sid, self.tid)
         by_id = {fields.lesson_id(item): item for item in refreshed}
         for course in self.courses:
             if course["id"] in by_id:
                 course["item"] = by_id[course["id"]]
-        courses_mod.refresh_selected(self.courses, selected)
-        courses_mod.apply_conflict_policy(self.courses, selected)
+        self._apply_state(selected)
 
     def _attempt_all(self, ts, selected):
         """按 priority 依次尝试所有未成功课程。
@@ -192,12 +193,8 @@ class Monitor:
                   f"选课结果: ok={ok} | {msg}")
             if ok:
                 course["selected"] = True
-                course["fails"] = 0
                 courses_mod.apply_conflict_policy(self.courses, selected)
                 self.notifier.send(f"选课成功：{courses_mod.label(course)}")
-            else:
-                course["fails"] += 1
-                course["last_msg"] = msg
         print(f"[{time.strftime('%H:%M:%S')}] 本轮结束")
 
     def _all_done(self):

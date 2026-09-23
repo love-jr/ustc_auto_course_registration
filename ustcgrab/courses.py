@@ -40,8 +40,6 @@ def resolve_courses(items, specs):
             "id": fields.lesson_id(item),
             "selected": False,
             "blocked": False,
-            "fails": 0,          # 累计失败次数，仅用于日志展示
-            "last_msg": "",
         })
     return courses
 
