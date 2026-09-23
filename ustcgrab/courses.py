@@ -18,7 +18,10 @@ def _course_matches(spec, item):
     lesson = spec.get("lessonAssoc")
     if lesson and fields.lesson_id(item) != str(lesson):
         return False
-    if spec.get("name") and fields.course_name(item) != spec["name"]:
+    name = spec.get("name")
+    # 课程名按子串匹配：接口返回的名字常带「（英文）」「-01班」等后缀，
+    # 要求配置写全名会很难用。配置里写关键片段即可（即 --name 的模糊匹配）。
+    if name and name not in fields.course_name(item):
         return False
     return _teacher_matches(spec, item)
 

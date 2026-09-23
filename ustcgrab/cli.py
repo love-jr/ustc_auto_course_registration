@@ -32,10 +32,11 @@ def build_parser():
     parser = argparse.ArgumentParser(
         description="USTC 教务系统 监控式抢课（Windows / Linux 通用）")
     parser.add_argument("--lesson", help="目标课 lessonId，优先于配置文件")
-    parser.add_argument("--name", help="目标课课程名（模糊匹配）")
+    parser.add_argument("--name", help="目标课课程名关键词（子串匹配）")
     parser.add_argument("-m", "--mode", choices=["spam", "monitor", "grab"],
                         help="spam 自动提交(推荐) | monitor 仅刷新 | grab 同 spam")
-    parser.add_argument("-t", "--interval", type=int, help="查询基准间隔（秒）")
+    parser.add_argument("-t", "--interval", type=int,
+                        help="白天轮间等待基准秒数，实际取 0.7~1.3 倍（最小 30）")
     parser.add_argument("--headless", action="store_true", help="强制无头模式")
     parser.add_argument("--login", action="store_true",
                         help="仅登录建立登录态后退出（需图形界面）")
