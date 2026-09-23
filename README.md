@@ -129,8 +129,8 @@ python grabbing.py --mode monitor     # 只监控不提交
 | `jw_login.py` | 登录模块兼容入口（实现已迁至 `ustcgrab/login.py`） |
 | `ustcgrab/` | 主实现，按职责拆分：`config` 配置、`api` 接口传输、`fields` 字段提取、`courses` 匹配与冲突、`pacing` 节奏、`notify` 通知、`login` 登录、`runner` 主循环、`cli` 入口 |
 | `config.json` | 通用配置模板（可提交） |
-| `config.local.json` | 个人信息覆盖（**已忽略**） |
-| `.env` | 账号密码与 SMTP 授权码（**已忽略**） |
+| `config.local.json` | 个人信息覆盖（**已忽略**），可照 `config.local.example.json` 填写 |
+| `.env` | 账号密码与 SMTP 授权码（**已忽略**），可照 `.env.example` 填写 |
 | `auth.json` | 登录态 cookie（**已忽略**） |
 | `autostart_*.bat` / `autostart_*.ps1` | Windows 开机自启的安装与卸载 |
 | `run_bot.pyw` / `start_bot.bat` | Windows 后台静默启动 |
